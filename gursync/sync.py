@@ -8,6 +8,7 @@ from io import BytesIO
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from gursync import config
+import base64
 
 def download_from_imgur(album_id):
     headers = {
@@ -19,25 +20,53 @@ def download_from_imgur(album_id):
 def upload_to_imgur(file_path, album_id):
     api_key = config.get_api_key()
     if not api_key:
-        print("API Key not set. Please run 'gursync setup' to configure it.")
+        print("API Key not set. Please run `gursync setup` to configure it.")
         return
     
     headers = {
         'Authorization': f'Bearer {api_key}',
     }
+    payload = {
+        'image': base64.b64encode(open(file_path, 'rb').read()),
+        'type': 'base64',
+        'name': os.path.basename(file_path),
+        'title': 'Uploaded with blaaa',
+        'privacy': '0', # 'public', 'hidden
+        'album': album_id,
+    }
+    response = requests.post('https://api.imgur.com/3/upload', headers=headers, data=payload)
+    print(response.json())
+#     if response.status_code == 200:
+#         image_id = response.json()['data']['id']
+#         add_to_album(image_id, album_id, file_path)
+#     else:
+#         print(f'Failed to upload {file_path}: {response.json()}')
+
+# def add_to_album(image_id, album_id, file_path):
+#     headers = {
+#         'Authorization': 'Bearer ' + config.get_api_key(),
+#     }
+
+#     response = requests.post(f'https://api.imgur.com/3/gallery/image/{image_id}', headers=headers, data={'title': 'Uploaded with gursync'})
+#     response = requests.delete(f'https://api.imgur.com/3/gallery/{image_id}', headers=headers)
     
-    with open(file_path, 'rb') as file:
-        data = {
-            'image': file.read(),
-            'album': album_id,
-            'type': 'file',
-        }
-        response = requests.post('https://api.imgur.com/3/image', headers=headers, files=data)
+
+#     # data = {
+#     #     'ids[]': image_id,
+#     # }
+#     payload = {
+#         'album': album_id,
+
+#     }
+#     files = {
+#         ('image', (os.path.basename(file_path), open(file_path, 'rb'), 'image/jpeg')),
+#     }
+#     response = requests.post(f'https://api.imgur.com/3/album/{album_id}/add', headers=headers, data=payload, files=files)
     
-    if response.status_code == 200:
-        print(f'Uploaded {file_path} to album {album_id}')
-    else:
-        print(f'Failed to upload {file_path}: {response.json()}')
+#     if response.status_code == 200:
+#         print(f'Added {image_id} to album {album_id}')
+#     else:
+#         print(f'Failed to add {image_id} to album {album_id}: {response.json()}')
 
 class SyncHandler(FileSystemEventHandler):
     def on_modified(self, event):
@@ -76,7 +105,7 @@ def start_sync():
 
     observer.start()
     try:
-        while True:
+        for _ in range(2): #while True:
             for pair in sync_pairs:
                check_if_not_synced(pair['directory'], pair['album_id'])
 

@@ -15,9 +15,9 @@ def save_config(config):
         json.dump(config, f, indent=4)
 
 def get_api_key():
-    return load_config().get('api_key')
+    return load_config().get('access_token')
 
 def set_api_key(api_key):
     cfg = load_config()
-    cfg['api_key'] = api_key
+    cfg['access_token'] = api_key
     save_config(cfg)
