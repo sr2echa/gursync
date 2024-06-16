@@ -9,6 +9,7 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from gursync import config
 import base64
+import threading
 
 def download_from_imgur(album_id):
     headers = {
@@ -18,6 +19,7 @@ def download_from_imgur(album_id):
     return response.json()
 
 def upload_to_imgur(file_path, album_id):
+    print(f'Uploading {file_path} to album {album_id}')
     api_key = config.get_api_key()
     if not api_key:
         print("API Key not set. Please run `gursync setup` to configure it.")
@@ -35,6 +37,20 @@ def upload_to_imgur(file_path, album_id):
         'album': album_id,
     }
     response = requests.post('https://api.imgur.com/3/upload', headers=headers, data=payload)
+
+def delete_from_imgur(image_url, album_id):
+    api_key = config.get_api_key()
+    if not api_key:
+        print("API Key not set. Please run `gursync setup` to configure it.")
+        return
+    
+    headers = {
+        'Authorization': f'Bearer {api_key}',
+    }
+    print(f'Deleting {image_url} from album {album_id}')
+    response = requests.delete(f'	https://api.imgur.com/3/image/{image_url.split("/")[-1].split('.')[0]}', headers=headers)
+    print(response.status_code)
+
 
 class SyncHandler(FileSystemEventHandler):
     def on_modified(self, event):
@@ -73,16 +89,30 @@ def start_sync():
 
     # observer.start()
     # try:
-    while True:
-        for pair in sync_pairs:
-            check_if_not_synced(pair['directory'], pair['album_id'])
+    # while True:
+    #     for pair in sync_pairs:
+    #         check_if_not_synced(pair['directory'], pair['album_id'])
+
+    threads = []
+    for pair in sync_pairs:
+        t = threading.Thread(target=run, args=(pair['directory'], pair['album_id']))
+        threads.append(t)
+        t.start()
+
+    for t in threads:
+        t.join()
+
 
     # except KeyboardInterrupt:
     #     observer.stop()
     # observer.join()
 
+def run(directory, album_id):
+    while True:
+        check_if_not_synced(directory, album_id, set())
 
-def check_if_not_synced(file_path, album_id):
+
+def check_if_not_synced(file_path, album_id, uploaded_hashes):
     data = download_from_imgur(album_id)['data']['images']
     data = [x["link"]for x in data]
     album_hashes = {}
@@ -102,15 +132,26 @@ def check_if_not_synced(file_path, album_id):
             response = Image.open(file_path + '/' + file)
             hash = imagehash.average_hash(response)
             file_hashes[hash] = file_path + '/' + file
+    
+    print(len(album_hashes), len(file_hashes))
 
     #if extra files in directory
+    # for key in file_hashes.keys():
+    #     if key not in album_hashes.keys():
+    #         # print(f'File {file_hashes[key]} not found in album {album_id}')
+    #         upload_to_imgur(file_hashes[key], album_id)
     for key in file_hashes.keys():
-        if key not in album_hashes.keys():
-            print(f'File {file_hashes[key]} not found in album {album_id}')
-            #upload the file to the album
+        if key not in album_hashes.keys() and key not in uploaded_hashes:
             upload_to_imgur(file_hashes[key], album_id)
+            uploaded_hashes.add(key)
 
-    # #if extra files in album
+    for key in album_hashes.keys():
+        if key not in file_hashes.keys():
+            print(f'File {album_hashes[key]} has been deleted from directory {file_path}')
+            delete_from_imgur(album_hashes[key], album_id)
+
+
+    #if extra files in album
     # for key in album_hashes.keys():
     #     if key not in file_hashes.keys():
     #         print(f'File {album_hashes[key]} not found in directory {file_path}')
@@ -125,8 +166,8 @@ def check_if_not_synced(file_path, album_id):
     #                     handle.write(block)
 
 
-    print(album_hashes.values())
-    print(file_hashes.values())
+    # print(album_hashes.values())
+    # print(file_hashes.values())
 
             
         
