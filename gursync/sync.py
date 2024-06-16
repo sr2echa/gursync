@@ -11,6 +11,9 @@ from gursync import config
 import base64
 import threading
 
+currently_uploading = set()
+currently_deleting = set()
+
 def download_from_imgur(album_id):
     headers = {
         'Authorization': f'Client-ID 5dc6065411ee2ab',
@@ -19,6 +22,9 @@ def download_from_imgur(album_id):
     return response.json()
 
 def upload_to_imgur(file_path, album_id):
+    if file_path in currently_uploading:
+        return
+    currently_uploading.add(file_path)
     print(f'Uploading {file_path} to album {album_id}')
     api_key = config.get_api_key()
     if not api_key:
@@ -37,8 +43,12 @@ def upload_to_imgur(file_path, album_id):
         'album': album_id,
     }
     response = requests.post('https://api.imgur.com/3/upload', headers=headers, data=payload)
+    print(response.status_code)
 
 def delete_from_imgur(image_url, album_id):
+    if image_url in currently_deleting:
+        return
+    currently_deleting.add(image_url)
     api_key = config.get_api_key()
     if not api_key:
         print("API Key not set. Please run `gursync setup` to configure it.")
@@ -49,7 +59,7 @@ def delete_from_imgur(image_url, album_id):
     }
     print(f'Deleting {image_url} from album {album_id}')
     response = requests.delete(f'	https://api.imgur.com/3/image/{image_url.split("/")[-1].split('.')[0]}', headers=headers)
-    print(response.status_code)
+    currently_deleting.remove(image_url)
 
 
 class SyncHandler(FileSystemEventHandler):
