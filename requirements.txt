@@ -2,3 +2,5 @@ watchdog
 requests
 typer
 questionary
+pillow
+imagehash

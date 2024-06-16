@@ -1,10 +1,20 @@
 import os
 import time
 import requests
-import base64
+from PIL import Image
+import imagehash
+import urllib.request
+from io import BytesIO
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from gursync import config
+
+def download_from_imgur(album_id):
+    headers = {
+        'Authorization': f'Client-ID 5dc6065411ee2ab',
+    }
+    response = requests.get(f'https://api.imgur.com/3/album/{album_id}', headers=headers)
+    return response.json()
 
 def upload_to_imgur(file_path, album_id):
     api_key = config.get_api_key()
@@ -45,7 +55,7 @@ class SyncHandler(FileSystemEventHandler):
             return
         self.handle_event(event.src_path, 'deleted')
 
-    ALLOWED_EXTENSIONS = {'.jpeg', '.png', '.gif', '.apng', '.tiff', '.mp4', '.mpeg', '.avi', '.webm', '.mov', '.mkv', '.flv', '.avi', '.wmv', '.gifv'}
+    ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.apng', '.tiff', '.mp4', '.mpeg', '.avi', '.webm', '.mov', '.mkv', '.flv', '.avi', '.wmv', '.gifv'}
 
     def handle_event(self, file_path, event_type):
         _, extension = os.path.splitext(file_path)
@@ -67,8 +77,59 @@ def start_sync():
     observer.start()
     try:
         while True:
-            time.sleep(1)
-            # Add logic to sync pending changes to Imgur
+            for pair in sync_pairs:
+               check_if_not_synced(pair['directory'], pair['album_id'])
+
     except KeyboardInterrupt:
         observer.stop()
     observer.join()
+
+
+def check_if_not_synced(file_path, album_id):
+    data = download_from_imgur(album_id)['data']['images']
+    data = [x["link"]for x in data]
+    album_hashes = {}
+    for image in data:
+        headers = {
+            "user-agent": "curl/7.84.0",
+            "accept": "*/*"
+        }
+        r = requests.get(image, stream=True, headers=headers).content
+        response = Image.open(BytesIO(r))
+        hash = imagehash.average_hash(response)
+        album_hashes[hash] = image
+            
+    file_hashes = {}
+    for file in os.listdir(file_path):
+        if file.endswith(tuple(SyncHandler.ALLOWED_EXTENSIONS)):
+            response = Image.open(file_path + '/' + file)
+            hash = imagehash.average_hash(response)
+            file_hashes[hash] = file_path + '/' + file
+
+    #if extra files in directory
+    for key in file_hashes.keys():
+        if key not in album_hashes.keys():
+            print(f'File {file_hashes[key]} not found in album {album_id}')
+            #upload the file to the album
+            upload_to_imgur(file_hashes[key], album_id)
+
+    # #if extra files in album
+    # for key in album_hashes.keys():
+    #     if key not in file_hashes.keys():
+    #         print(f'File {album_hashes[key]} not found in directory {file_path}')
+    #         response = requests.get(album_hashes[key], stream=True, headers=headers, allow_redirects=True)
+    #         if not response.ok:
+    #             print(response)
+    #         else:
+    #             with open(f"{file_path}/{album_hashes[key].split('/')[-1]}", 'wb') as handle:
+    #                 for block in response.iter_content(1024):
+    #                     if not block:
+    #                         break
+    #                     handle.write(block)
+
+
+    print(album_hashes.values())
+    print(file_hashes.values())
+
+            
+        
