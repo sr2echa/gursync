@@ -35,38 +35,6 @@ def upload_to_imgur(file_path, album_id):
         'album': album_id,
     }
     response = requests.post('https://api.imgur.com/3/upload', headers=headers, data=payload)
-    print(response.json())
-#     if response.status_code == 200:
-#         image_id = response.json()['data']['id']
-#         add_to_album(image_id, album_id, file_path)
-#     else:
-#         print(f'Failed to upload {file_path}: {response.json()}')
-
-# def add_to_album(image_id, album_id, file_path):
-#     headers = {
-#         'Authorization': 'Bearer ' + config.get_api_key(),
-#     }
-
-#     response = requests.post(f'https://api.imgur.com/3/gallery/image/{image_id}', headers=headers, data={'title': 'Uploaded with gursync'})
-#     response = requests.delete(f'https://api.imgur.com/3/gallery/{image_id}', headers=headers)
-    
-
-#     # data = {
-#     #     'ids[]': image_id,
-#     # }
-#     payload = {
-#         'album': album_id,
-
-#     }
-#     files = {
-#         ('image', (os.path.basename(file_path), open(file_path, 'rb'), 'image/jpeg')),
-#     }
-#     response = requests.post(f'https://api.imgur.com/3/album/{album_id}/add', headers=headers, data=payload, files=files)
-    
-#     if response.status_code == 200:
-#         print(f'Added {image_id} to album {album_id}')
-#     else:
-#         print(f'Failed to add {image_id} to album {album_id}: {response.json()}')
 
 class SyncHandler(FileSystemEventHandler):
     def on_modified(self, event):
@@ -103,15 +71,15 @@ def start_sync():
         directory = pair['directory']
         observer.schedule(event_handler, directory, recursive=True)
 
-    observer.start()
-    try:
-        for _ in range(2): #while True:
-            for pair in sync_pairs:
-               check_if_not_synced(pair['directory'], pair['album_id'])
+    # observer.start()
+    # try:
+    while True:
+        for pair in sync_pairs:
+            check_if_not_synced(pair['directory'], pair['album_id'])
 
-    except KeyboardInterrupt:
-        observer.stop()
-    observer.join()
+    # except KeyboardInterrupt:
+    #     observer.stop()
+    # observer.join()
 
 
 def check_if_not_synced(file_path, album_id):
