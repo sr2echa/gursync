@@ -1,6 +1,7 @@
 import os
 import time
 import requests
+import base64
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from gursync import config
@@ -44,7 +45,12 @@ class SyncHandler(FileSystemEventHandler):
             return
         self.handle_event(event.src_path, 'deleted')
 
+    ALLOWED_EXTENSIONS = {'.jpeg', '.png', '.gif', '.apng', '.tiff', '.mp4', '.mpeg', '.avi', '.webm', '.mov', '.mkv', '.flv', '.avi', '.wmv', '.gifv'}
+
     def handle_event(self, file_path, event_type):
+        _, extension = os.path.splitext(file_path)
+        if extension.lower() not in self.ALLOWED_EXTENSIONS:
+            return
         print(f'{event_type.capitalize()} {file_path}')
         # Add event handling logic (upload to Imgur, etc.)
 

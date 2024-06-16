@@ -1,6 +1,9 @@
+import os
 import typer
 import questionary
 from gursync import config, sync
+import base64
+
 
 app = typer.Typer()
 
@@ -19,10 +22,17 @@ def create():
     
     album_id = questionary.text("Enter the Imgur Album ID:").ask()
     directory = questionary.path("Enter the directory to sync (default is current directory):", default='.').ask()
+    if not os.path.exists(directory):
+        typer.echo(f"Directory {directory} does not exist.")
+        raise typer.Abort()
+    
+    if directory == '.':
+        directory = os.getcwd()
     
     cfg = config.load_config()
     if 'sync_pairs' not in cfg:
         cfg['sync_pairs'] = []
+
     cfg['sync_pairs'].append({'album_id': album_id, 'directory': directory})
     config.save_config(cfg)
     
