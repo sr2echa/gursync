@@ -15,6 +15,9 @@ setup(
         'requests',
         'typer',
         'questionary',
+        'pillow',
+        'imagehash',
+        'aiohttp'
     ],
     entry_points={
         'console_scripts': [
