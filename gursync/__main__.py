@@ -84,7 +84,7 @@ def create():
     if 'sync_pairs' not in cfg:
         cfg['sync_pairs'] = []
 
-    cfg['sync_pairs'].append({'album_id': album_id, 'directory': directory})
+    cfg['sync_pairs'].append({'album_id': album_id, 'directory': directory, 'etag': ''})
     config.save_config(cfg)
     
     typer.echo(f"Sync pair created: Album {album_id} <-> Directory {directory}")
